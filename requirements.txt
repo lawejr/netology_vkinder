@@ -1,1 +1,2 @@
 vk_api
+SQLAlchemy~=1.4.23

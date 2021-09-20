@@ -10,7 +10,7 @@ longpoll = VkLongPoll(vk)
 
 
 def write_msg(user_id, message):
-    vk.method('messages.send', {'user_id': user_id, 'message': message,  'random_id': randrange(10 ** 7),})
+    vk.method('messages.send', {'user_id': user_id, 'message': message,  'random_id': randrange(10 ** 7)})
 
 
 for event in longpoll.listen():
@@ -23,4 +23,4 @@ for event in longpoll.listen():
             elif request == "пока":
                 write_msg(event.user_id, "Пока((")
             else:
-                write_msg(event.user_id, "Не поняла вашего ответа...")
+                write_msg(event.user_id, "Не понял вашего ответа...")
