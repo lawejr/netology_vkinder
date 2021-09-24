@@ -6,6 +6,5 @@ from .Base import Base
 class Dating(Base):
     __tablename__ = 'dating'
 
-    id = sq.Column(sq.Integer, primary_key=True)
-
-    pass
+    user_id = sq.Column(sq.ForeignKey('user.id'), primary_key=True)
+    candidate_id = sq.Column(sq.ForeignKey('user.id'), primary_key=True)
