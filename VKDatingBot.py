@@ -1,4 +1,5 @@
 from random import randrange
+from datetime import datetime
 from vk_api.longpoll import VkLongPoll, VkEventType
 from init_db import Session
 from db.models import User
@@ -14,28 +15,41 @@ class VKDatingBot:
             self._handle_event(event)
 
     def _handle_event(self, event):
-        if event.type == VkEventType.MESSAGE_NEW:
-            if event.to_me:
-                request = event.text
+        if event.type == VkEventType.MESSAGE_NEW and event.to_me:
+            request = event.text
+            user = self._get_user_by_id(event.user_id)
 
-                user = self._get_user_by_id(event.user_id)
+            # filters = {
+            #     'age': user.age,
+            #     'sex': user.sex,
+            #     'home_town': user.home_town,
+            #     'status': user.status
+            # }
 
-                if request == "привет":
-                    self.write_msg(event.user_id, f"Хай, {event.user_id}")
-                elif request == "пока":
-                    self.write_msg(event.user_id, "Пока((")
-                else:
-                    self.write_msg(event.user_id, "Не понял вашего ответа...")
+            if request == "привет":
+                self.write_msg(event.user_id, f"Хай, {event.user_id}")
+            elif request == "пока":
+                self.write_msg(event.user_id, "Пока((")
+            else:
+                self.write_msg(event.user_id, "Не понял вашего ответа...")
 
     def _get_user_by_id(self, user_id):
         session = Session()
         user = session.query(User).filter(User.vk_id == user_id).first()
 
         if user:
-            return user
+            if user.updated_at.date() == datetime.today().date():
+                return user
+            else:
+                row_user = self.client.method('users.get', {'user_ids': [user_id], 'fields': 'sex,bdate,home_town,status'})[0]
+                user.update_from_vk(row_user)
+                session.add(user)
+                session.commit()
+
+                return user
         else:
             row_user = self.client.method('users.get', {'user_ids': [user_id], 'fields': 'sex,bdate,home_town,status'})[0]
-            user = User.from_vk(row_user)
+            user = User.create_from_vk(row_user)
             session.add(user)
             session.commit()
         return user
