@@ -1,6 +1,7 @@
 import sqlalchemy as sq
 from datetime import date
-from sqlalchemy import CheckConstraint, Column, DateTime, sql
+from sqlalchemy.orm import relationship
+from sqlalchemy import CheckConstraint
 
 from .Base import Base
 
@@ -8,9 +9,6 @@ from .Base import Base
 class User(Base):
     __tablename__ = 'user'
 
-    created_at = Column(DateTime, default=sql.func.now())
-    updated_at = Column(DateTime, default=sql.func.now(), onupdate=sql.func.now())
-    id = sq.Column(sq.Integer, primary_key=True)
     vk_id = sq.Column(sq.Integer, unique=True)
     first_name = sq.Column(sq.String)
     last_name = sq.Column(sq.String)
@@ -18,6 +16,7 @@ class User(Base):
     birth_date = sq.Column(sq.Date)
     status = sq.Column(sq.String)
     home_town = sq.Column(sq.String)
+    search_filter = relationship('SearchFilter', uselist=False, cascade='delete')
 
     @property
     def profile_link(self):
