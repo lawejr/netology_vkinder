@@ -154,23 +154,23 @@ class VKDatingBot:
 
         self.write_msg(vk_id, 'Выберите семейное положение', keyboard=keyboard)
 
-        for filter_event in self.longpoll.listen():
-            if VKDatingBot.is_message_to_me(filter_event):
-                if filter_event.text == NOT_MARRIED:
+        for relation_event in self.longpoll.listen():
+            if VKDatingBot.is_message_to_me(relation_event):
+                if relation_event.text == NOT_MARRIED:
                     return RelationType.NOT_MARRIED.value
-                elif filter_event.text == HAS_FRIEND:
+                elif relation_event.text == HAS_FRIEND:
                     return RelationType.HAS_FRIEND.value
-                elif filter_event.text == ENGAGED:
+                elif relation_event.text == ENGAGED:
                     return RelationType.ENGAGED.value
-                elif filter_event.text == DIFFICULTLY:
+                elif relation_event.text == DIFFICULTLY:
                     return RelationType.DIFFICULTLY.value
-                elif filter_event.text == IN_SEARCH:
+                elif relation_event.text == IN_SEARCH:
                     return RelationType.IN_SEARCH.value
-                elif filter_event.text == IN_LOVE:
+                elif relation_event.text == IN_LOVE:
                     return RelationType.IN_LOVE.value
-                elif filter_event.text == CIVIL_MARRIED:
+                elif relation_event.text == CIVIL_MARRIED:
                     return RelationType.CIVIL_MARRIED.value
-                elif filter_event.text == UNKNOWN:
+                elif relation_event.text == UNKNOWN:
                     return RelationType.UNKNOWN.value
                 else:
                     self.write_msg(vk_id, 'Выберите пол из списка', keyboard=keyboard)
