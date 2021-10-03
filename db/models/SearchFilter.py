@@ -18,10 +18,10 @@ class SearchFilter(Base):
 
     @property
     def empty_fields(self):
-        return [i for i in self.__dict__.keys() if i[:1] != '_'
-                and i not in self.__service_fields
-                and not getattr(self, i)
-                ]
+        return sorted([i for i in self.__dict__.keys() if i[:1] != '_'
+                       and i not in self.__service_fields
+                       and not getattr(self, i)
+                       ], reverse=True)
 
     __table_args__ = (
         CheckConstraint(0 <= sex, name='check_sex_gte_0'),
