@@ -27,7 +27,7 @@ class VKDatingBot:
             vk_id = event.user_id
 
             if request == Message.HELLO.value or request == Message.START.value:
-                self.start(vk_id)
+                self.init(vk_id)
                 return
             elif request == Message.BYE.value:
                 self.write_msg(vk_id, 'Пока((')
@@ -37,7 +37,7 @@ class VKDatingBot:
                                       'Чтобы с кем-нибудь познакомиться напишите "Привет" или "Start".')
                 return
 
-    def start(self, vk_id):
+    def init(self, vk_id):
         self.write_msg(vk_id, f'Хай, {vk_id}')
         user = self.get_user_by_vkid(vk_id)
         user_filter = SearchFilter()
@@ -54,44 +54,71 @@ class VKDatingBot:
         else:
             user_filter = user.search_filter
 
-        empty_fields = user_filter.empty_fields
-
-        if empty_fields:
-            for field in empty_fields:
+        if user_filter.empty_fields:
+            for field in user_filter.empty_fields:
                 get_method = getattr(self, f'get_{field}_filter')
                 new_value = get_method(vk_id, user_filter)
                 setattr(user_filter, field, new_value)
 
             self.save_filter(user.id, user_filter)
-            print('Теперь все поля заполнены, можно приступить к поиску')
+            self.start(vk_id, user_filter, init_message='Теперь все готово, можем приступить к поиску')
         else:
-            print('Все фильтры заполнены, можно приступить к поиску')
+            self.start(vk_id, user_filter)
 
-    def get_sex_filter(self, vk_id, _):
-        girl = 'Девушка 👩'
-        boy = 'Парень 👨'
-        anyone = 'Любого пола'
+    def start(self, vk_id, filter, init_message='Выберите действие из списка'):
+        START = 'Начать'
+        EDIT = 'Изменить'
+        start_keyboard = VkKeyboard(one_time=True)
+        start_keyboard.add_button(START, color=VkKeyboardColor.PRIMARY)
+        start_keyboard.add_button(EDIT, color=VkKeyboardColor.SECONDARY)
+        start_keyboard = start_keyboard.get_keyboard()
+
+        self.write_msg(vk_id, 'Пареметры поиска\n'
+                              # TODO: красивое отображение
+                              f'Пол: {filter.sex}\n'
+                              f'Возраст: от {filter.age_min} до {filter.age_max}\n'
+                              f'Семейное положение: {filter.relation}\n'
+                              f'Город: {filter.home_town}\n')
+        self.write_msg(vk_id, init_message, keyboard=start_keyboard)
+
+        for start_event in self.longpoll.listen():
+            if self.is_message_to_me(start_event):
+                if start_event.text == START:
+                    return self.search(vk_id)
+                elif start_event.text == EDIT:
+                    return self.edit_filter(vk_id)
+                else:
+                    self.write_msg(vk_id, '', keyboard=start_keyboard)
+
+    def search(self, vk_id):
+        # TODO: поиск
+        pass
+
+    def get_sex_filter(self, vk_id, _=None):
+        GIRL = 'Девушка 👩'
+        BOY = 'Парень 👨'
+        ANYONE = 'Любого пола'
 
         keyboard = VkKeyboard(one_time=True)
-        keyboard.add_button(girl, color=VkKeyboardColor.PRIMARY)
-        keyboard.add_button(boy, color=VkKeyboardColor.POSITIVE)
-        keyboard.add_button(anyone, color=VkKeyboardColor.SECONDARY)
+        keyboard.add_button(GIRL, color=VkKeyboardColor.PRIMARY)
+        keyboard.add_button(BOY, color=VkKeyboardColor.POSITIVE)
+        keyboard.add_button(ANYONE, color=VkKeyboardColor.SECONDARY)
         keyboard = keyboard.get_keyboard()
 
         self.write_msg(vk_id, 'Пожалуйста, уточните пол', keyboard=keyboard)
 
         for filter_event in self.longpoll.listen():
             if VKDatingBot.is_message_to_me(filter_event):
-                if filter_event.text == girl:
+                if filter_event.text == GIRL:
                     return GenderType.WOMAN.value
-                elif filter_event.text == boy:
+                elif filter_event.text == BOY:
                     return GenderType.MAN.value
-                elif filter_event.text == anyone:
+                elif filter_event.text == ANYONE:
                     return GenderType.UNKNOWN.value
                 else:
                     self.write_msg(vk_id, 'Выберите пол из списка', keyboard=keyboard)
 
-    def get_age_min_filter(self, vk_id, _):
+    def get_age_min_filter(self, vk_id, _=None):
         self.write_msg(vk_id, 'Укажите минимальный возраст партнера цифрами. Например: 20')
 
         for min_age_event in self.longpoll.listen():
@@ -125,10 +152,11 @@ class VKDatingBot:
                                           f'Введите число от '
                                           f'{current_filter.age_min if current_filter.age_min else 14} до 90')
 
-    def get_home_town_filter(self, vk_id, _):
-        print(vk_id)
+    def get_home_town_filter(self, vk_id, _=None):
+        # TODO: запрос фильтра по городу
+        pass
 
-    def get_relation_filter(self, vk_id, _):
+    def get_relation_filter(self, vk_id, _=None):
         NOT_MARRIED = 'Не женат / не замужем'
         HAS_FRIEND = 'Есть друг / есть подруга'
         ENGAGED = 'Помолвлен / помолвлена'
@@ -207,6 +235,54 @@ class VKDatingBot:
         session.commit()
         session.refresh(user)
         return user
+
+    def edit_filter(self, vk_id):
+        user = self.get_user_by_vkid(vk_id)
+
+        SEX = 'Пол'
+        HOME_TOWN = 'Город'
+        RELATION = 'Семейное положение'
+        AGE_MIN = 'Минимальный возраст'
+        AGE_MAX = 'Максимальный возраст'
+        CANCEL = 'Отменить и начать поиск'
+
+        keyboard = VkKeyboard(one_time=True)
+        keyboard.add_button(SEX, color=VkKeyboardColor.SECONDARY)
+        keyboard.add_button(HOME_TOWN, color=VkKeyboardColor.SECONDARY)
+        keyboard.add_button(RELATION, color=VkKeyboardColor.SECONDARY)
+        keyboard.add_line()
+        keyboard.add_button(AGE_MIN, color=VkKeyboardColor.SECONDARY)
+        keyboard.add_button(AGE_MAX, color=VkKeyboardColor.SECONDARY)
+        keyboard.add_line()
+        keyboard.add_button(CANCEL, color=VkKeyboardColor.PRIMARY)
+        keyboard = keyboard.get_keyboard()
+
+        self.write_msg(vk_id, 'Что хотите изменить?', keyboard=keyboard)
+
+        for edit_event in self.longpoll.listen():
+            if VKDatingBot.is_message_to_me(edit_event):
+                result = user.search_filter or SearchFilter()
+
+                if edit_event.text == SEX:
+                    result.sex = self.get_sex_filter(vk_id)
+                elif edit_event.text == HOME_TOWN:
+                    result.home_town = self.get_home_town_filter(vk_id)
+                elif edit_event.text == RELATION:
+                    result.relation = self.get_relation_filter(vk_id)
+                elif edit_event.text == AGE_MIN:
+                    result.age_min = self.get_age_min_filter(vk_id)
+                elif edit_event.text == AGE_MAX:
+                    result.age_max = self.get_age_max_filter(vk_id, result)
+                elif edit_event.text == CANCEL:
+                    return self.search(vk_id)
+                else:
+                    self.write_msg(vk_id, 'Выберите действие из списка', keyboard=keyboard)
+                    continue
+
+                if result:
+                    self.save_filter(user.id, result)
+                    return self.start(vk_id, result, init_message='Параметры поиска изменены, '
+                                                                  'можем приступить к поиску')
 
     def write_msg(self, vk_id, message, keyboard=None):
         self.client.method('messages.send', {
