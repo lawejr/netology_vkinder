@@ -4,7 +4,7 @@ from vk_api.longpoll import VkLongPoll, VkEventType
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from init_db import Session
 from db.models import User, SearchFilter
-from constants import Message, GenderType, FilterName, Filter
+from constants import Message, GenderType
 
 
 class VKDatingBot:
@@ -19,27 +19,27 @@ class VKDatingBot:
 
         print('=== Бот готов принять сообщение в чате ===')
         for event in self.longpoll.listen():
-            self._handle_event(event)
+            self.handle_event(event)
 
-    def _handle_event(self, event):
+    def handle_event(self, event):
         if VKDatingBot.is_message_to_me(event):
             request = event.text.lower()
             vk_id = event.user_id
 
             if request == Message.HELLO.value or request == Message.START.value:
-                self._start(vk_id)
+                self.start(vk_id)
                 return
             elif request == Message.BYE.value:
                 self.write_msg(vk_id, "Пока((")
                 return
             else:
                 self.write_msg(vk_id, "Я вас не понял. \n"
-                                              "Чтобы с кем-нибудь познакомиться напишите \"Привет\" или \"Start\".")
+                                      "Чтобы с кем-нибудь познакомиться напишите \"Привет\" или \"Start\".")
                 return
 
-    def _start(self, vk_id):
+    def start(self, vk_id):
         self.write_msg(vk_id, f"Хай, {vk_id}")
-        user = self._get_user_by_vkid(vk_id)
+        user = self.get_user_by_vkid(vk_id)
         user_filter = SearchFilter()
 
         if not user.search_filter:
@@ -50,7 +50,7 @@ class VKDatingBot:
                 user_filter.sex = GenderType.WOMAN.value
             elif user.sex == GenderType.MAN.value:
                 user_filter.sex = GenderType.MAN.value
-            user = self._save_filter(user.id, user_filter)
+            user = self.save_filter(user.id, user_filter)
         else:
             user_filter = user.search_filter
 
@@ -62,12 +62,12 @@ class VKDatingBot:
                 new_value = get_method(vk_id)
                 setattr(user_filter, field, new_value)
 
-            self._save_filter(user.id, user_filter)
+            self.save_filter(user.id, user_filter)
             print('Теперь все поля заполнены, можно приступить к поиску')
         else:
             print('Все фильтры заполнены, можно приступить к поиску')
 
-    def _get_sex_filter(self, vk_id):
+    def get_sex_filter(self, vk_id):
         keyboard = VkKeyboard(one_time=True)
         keyboard.add_button('Девушка 👩', color=VkKeyboardColor.PRIMARY)
         keyboard.add_button('Парень 👨', color=VkKeyboardColor.POSITIVE)
@@ -87,7 +87,7 @@ class VKDatingBot:
                 else:
                     self.write_msg(vk_id, f"Пожалуйста, выберите пол из списка", keyboard=keyboard)
 
-    def _get_user_by_vkid(self, vk_id):
+    def get_user_by_vkid(self, vk_id):
         session = self.db_session
         user = session.query(User).filter(User.vk_id == vk_id).first()
 
@@ -95,7 +95,8 @@ class VKDatingBot:
             if user.updated_at.date() == datetime.today().date():
                 return user
             else:
-                row_user = self.client.method('users.get', {'user_ids': [vk_id], 'fields': 'sex,bdate,home_town,status'})[0]
+                row_user = \
+                self.client.method('users.get', {'user_ids': [vk_id], 'fields': 'sex,bdate,home_town,status'})[0]
                 user.update_from_vk(row_user)
                 session.add(user)
                 session.commit()
@@ -109,7 +110,7 @@ class VKDatingBot:
             session.refresh(user)
         return user
 
-    def _save_filter(self, user_id, search_filter):
+    def save_filter(self, user_id, search_filter):
         session = self.db_session
         user = session.query(User).get(user_id)
         session.add(search_filter)
@@ -126,8 +127,3 @@ class VKDatingBot:
             'random_id': randrange(10 ** 7),
             'keyboard': keyboard
         })
-
-
-# message текст сообщения
-# text текст сообщения
-# user_id 675920716
