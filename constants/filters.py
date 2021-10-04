@@ -1,10 +1,20 @@
 from enum import Enum, IntEnum
 
-# TODO: Проверить использование всех енамов
 class GenderType(IntEnum):
     WOMAN = 1
     MAN = 2
     UNKNOWN = 0
+
+    @property
+    def name(self):
+        return _GenderTypeName[self]
+
+
+_GenderTypeName = {
+    GenderType.WOMAN: 'Девушка ♀️',
+    GenderType.MAN: 'Парень ♂️',
+    GenderType.UNKNOWN: 'Любой пол'
+}
 
 
 class RelationType(IntEnum):
@@ -18,20 +28,41 @@ class RelationType(IntEnum):
     CIVIL_MARRIED = 8
     UNKNOWN = 0
 
+    @property
+    def name(self):
+        return _RelationTypeName[self]
 
-class Filter(Enum):
+
+_RelationTypeName = {
+    RelationType.NOT_MARRIED: 'Не женат / не замужем',
+    RelationType.HAS_FRIEND: 'Есть друг / есть подруга',
+    RelationType.ENGAGED: 'Помолвлен / помолвлена',
+    RelationType.MARRIED: 'Женат / Замужем',
+    RelationType.DIFFICULTLY: 'Всё сложно',
+    RelationType.IN_SEARCH: 'В активном поиске',
+    RelationType.IN_LOVE: 'Влюблён / влюблена',
+    RelationType.CIVIL_MARRIED: 'В гражданском браке',
+    RelationType.UNKNOWN: 'Не указано'
+}
+
+
+class FilterType(Enum):
     SEX = 'sex'
     AGE_MIN = 'age_min'
     AGE_MAX = 'age_max'
-    STATUS = 'status'
+    RELATION = 'relation'
     CITY = 'city'
 
+    @property
+    def name(self):
+        return _FilterName[self]
 
-FilterName = {
-    Filter.SEX.value: 'Пол',
-    Filter.AGE_MIN.value: 'Минимальный возвраст',
-    Filter.AGE_MAX.value: 'Максимальный возвраст',
-    Filter.STATUS.value: 'Семейное положение',
-    Filter.CITY.value: 'Город'
+
+_FilterName = {
+    FilterType.SEX: 'Пол',
+    FilterType.AGE_MIN: 'Минимальный возвраст',
+    FilterType.AGE_MAX: 'Максимальный возвраст',
+    FilterType.RELATION: 'Семейное положение',
+    FilterType.CITY: 'Город'
 }
 

@@ -24,6 +24,22 @@ class SearchFilter(Base):
                        and not getattr(self, i)
                        ], reverse=True)
 
+    @property
+    def vk_params(self):
+        return {
+            'is_closed': 'False',
+            'has_photo': '1',
+            'sex': self.sex,
+            'status': self.relation,
+            'city': self.city,
+            'age_from': self.age_min,
+            'age_to': self.age_max,
+            'offset': self.offset,
+            'count': '3',
+            'fields': 'city',
+            'v': 5.131
+        }
+
     __table_args__ = (
         CheckConstraint(0 <= sex, name='check_sex_gte_0'),
         CheckConstraint(sex <= 2, name='check_sex_lte_2'),

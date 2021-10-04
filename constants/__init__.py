@@ -1,2 +1,1 @@
-from .messages import Message
-from .filters import GenderType, RelationType, Filter, FilterName
+from .filters import GenderType, RelationType, FilterType

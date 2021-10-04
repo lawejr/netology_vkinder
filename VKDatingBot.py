@@ -4,7 +4,7 @@ from vk_api.longpoll import VkLongPoll, VkEventType
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from init_db import Session
 from db.models import User, SearchFilter
-from constants import Message, GenderType, RelationType
+from constants import GenderType, RelationType, FilterType
 
 
 class VKDatingBot:
@@ -27,11 +27,11 @@ class VKDatingBot:
             request = event.text.lower()
             vk_id = event.user_id
 
-            if request == Message.HELLO.value or request == Message.START.value:
+            if request == 'привет' or request == 'start':
                 self.init(vk_id)
                 return
-            elif request == Message.BYE.value:
-                self.write_msg(vk_id, 'Пока((')
+            elif request == 'пока':
+                self.write_msg(vk_id, 'До свидания! Если с кем-нибудь познакомиться напишите  "Привет" или "Start".')
                 return
             else:
                 self.write_msg(vk_id, 'Я вас не понял. \n'
@@ -47,10 +47,11 @@ class VKDatingBot:
             user_filter.age_min = user.age
             user_filter.age_max = user.age
             user_filter.city = user.city
-            if user.sex == GenderType.MAN.value:
-                user_filter.sex = GenderType.WOMAN.value
-            elif user.sex == GenderType.MAN.value:
-                user_filter.sex = GenderType.MAN.value
+
+            if user.sex == GenderType.MAN:
+                user_filter.sex = GenderType.WOMAN
+            elif user.sex == GenderType.MAN:
+                user_filter.sex = GenderType.MAN
             user = self.save_filter(user.id, user_filter)
         else:
             user_filter = user.search_filter
@@ -80,12 +81,10 @@ class VKDatingBot:
             if filter.city \
             else 'Любой'
 
-        self.write_msg(vk_id, 'Пареметры поиска\n'
-                              # TODO: красивое отображение
-                              f'Пол: {filter.sex}\n'
+        self.write_msg(vk_id, 'Параметры поиска\n'
+                              f'Пол: {GenderType(filter.sex).name}\n'
                               f'Возраст: от {filter.age_min} до {filter.age_max}\n'
                               f'Семейное положение: {filter.relation}\n'
-                              # TODO: красивое отображение
                               f'Город: {display_city}')
         self.write_msg(vk_id, init_message, keyboard=start_keyboard)
 
@@ -103,28 +102,14 @@ class VKDatingBot:
 
     def search(self, vk_id):
         user = self.get_user_by_vkid(vk_id)
-        user_filter = user.search_filter
-
-        candidate_param = {
-            'is_closed': 'False',
-            'has_photo': '1',
-            'sex': user_filter.sex,
-            'status': user_filter.relation,
-            'city': user_filter.city,
-            'age_from': user_filter.age_min,
-            'age_to': user_filter.age_max,
-            'offset': user_filter.offset,
-            'count': '3',
-            'fields': 'city',
-            'v': 5.131
-        }
+        candidate_param = user.search_filter.vk_params
 
         return self.app_client.method('users.search', candidate_param).get('items')
 
     def get_sex_filter(self, vk_id, _=None):
-        GIRL = 'Девушка 👩'
-        BOY = 'Парень 👨'
-        ANYONE = 'Любого пола'
+        GIRL = GenderType.WOMAN.name
+        BOY = GenderType.MAN.name
+        ANYONE = GenderType.UNKNOWN.name
 
         keyboard = VkKeyboard(one_time=True)
         keyboard.add_button(GIRL, color=VkKeyboardColor.PRIMARY)
@@ -137,11 +122,11 @@ class VKDatingBot:
         for filter_event in self.longpoll.listen():
             if VKDatingBot.is_message_to_me(filter_event):
                 if filter_event.text == GIRL:
-                    return GenderType.WOMAN.value
+                    return GenderType.WOMAN
                 elif filter_event.text == BOY:
-                    return GenderType.MAN.value
+                    return GenderType.MAN
                 elif filter_event.text == ANYONE:
-                    return GenderType.UNKNOWN.value
+                    return GenderType.UNKNOWN
                 else:
                     self.write_msg(vk_id, 'Выберите пол из списка', keyboard=keyboard)
 
@@ -219,14 +204,14 @@ class VKDatingBot:
                     return result_cities[0].get('id')
 
     def get_relation_filter(self, vk_id, _=None):
-        NOT_MARRIED = 'Не женат / не замужем'
-        HAS_FRIEND = 'Есть друг / есть подруга'
-        ENGAGED = 'Помолвлен / помолвлена'
-        DIFFICULTLY = 'Всё сложно'
-        IN_SEARCH = 'В активном поиске'
-        IN_LOVE = 'Влюблён / влюблена'
-        CIVIL_MARRIED = 'В гражданском браке'
-        UNKNOWN = 'Не указано'
+        NOT_MARRIED = RelationType.NOT_MARRIED.name
+        HAS_FRIEND = RelationType.HAS_FRIEND.name
+        ENGAGED = RelationType.ENGAGED.name
+        DIFFICULTLY = RelationType.DIFFICULTLY.name
+        IN_SEARCH = RelationType.IN_SEARCH.name
+        IN_LOVE = RelationType.IN_LOVE.name
+        CIVIL_MARRIED = RelationType.CIVIL_MARRIED.name
+        UNKNOWN = RelationType.UNKNOWN.name
 
         keyboard = VkKeyboard(one_time=True)
         keyboard.add_button(IN_SEARCH, color=VkKeyboardColor.POSITIVE)
@@ -247,21 +232,21 @@ class VKDatingBot:
         for relation_event in self.longpoll.listen():
             if VKDatingBot.is_message_to_me(relation_event):
                 if relation_event.text == NOT_MARRIED:
-                    return RelationType.NOT_MARRIED.value
+                    return RelationType.NOT_MARRIED
                 elif relation_event.text == HAS_FRIEND:
-                    return RelationType.HAS_FRIEND.value
+                    return RelationType.HAS_FRIEND
                 elif relation_event.text == ENGAGED:
-                    return RelationType.ENGAGED.value
+                    return RelationType.ENGAGED
                 elif relation_event.text == DIFFICULTLY:
-                    return RelationType.DIFFICULTLY.value
+                    return RelationType.DIFFICULTLY
                 elif relation_event.text == IN_SEARCH:
-                    return RelationType.IN_SEARCH.value
+                    return RelationType.IN_SEARCH
                 elif relation_event.text == IN_LOVE:
-                    return RelationType.IN_LOVE.value
+                    return RelationType.IN_LOVE
                 elif relation_event.text == CIVIL_MARRIED:
-                    return RelationType.CIVIL_MARRIED.value
+                    return RelationType.CIVIL_MARRIED
                 elif relation_event.text == UNKNOWN:
-                    return RelationType.UNKNOWN.value
+                    return RelationType.UNKNOWN
                 else:
                     self.write_msg(vk_id, 'Выберите пол из списка', keyboard=keyboard)
 
@@ -301,11 +286,11 @@ class VKDatingBot:
     def edit_filter(self, vk_id):
         user = self.get_user_by_vkid(vk_id)
 
-        SEX = 'Пол'
-        CITY = 'Город'
-        RELATION = 'Семейное положение'
-        AGE_MIN = 'Минимальный возраст'
-        AGE_MAX = 'Максимальный возраст'
+        SEX = FilterType.SEX.name
+        CITY = FilterType.CITY.name
+        RELATION = FilterType.RELATION.name
+        AGE_MIN = FilterType.AGE_MIN.name
+        AGE_MAX = FilterType.AGE_MAX.name
         CANCEL = 'Отменить и начать поиск'
 
         keyboard = VkKeyboard(one_time=True)
