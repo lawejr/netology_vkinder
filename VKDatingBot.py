@@ -39,6 +39,7 @@ class VKDatingBot:
                 return
 
     def init(self, vk_id):
+        # TODO: приветственное сообщение
         self.write_msg(vk_id, f'Хай, {vk_id}')
         user = self.get_user_by_vkid(vk_id)
         user_filter = SearchFilter()
@@ -91,7 +92,14 @@ class VKDatingBot:
         for start_event in self.longpoll.listen():
             if self.is_message_to_me(start_event):
                 if start_event.text == START:
-                    return self.search(vk_id)
+                    result = self.search(vk_id)
+
+                    if not result:
+                        self.write_msg(vk_id, 'Не удалось найти пользователей заданными параметрам.\n'
+                                              'Попробуйте изменить настройки поиска')
+                        return self.edit_filter(vk_id)
+                    else:
+                        print(result)
                 elif start_event.text == EDIT:
                     return self.edit_filter(vk_id)
                 else:
@@ -104,7 +112,12 @@ class VKDatingBot:
         user = self.get_user_by_vkid(vk_id)
         candidate_param = user.search_filter.vk_params
 
-        return self.app_client.method('users.search', candidate_param).get('items')
+        result = self.app_client.method('users.search', candidate_param).get('items')
+
+        user.search_filter.offset += SearchFilter.RESULT_COUNT
+        self.save_filter(user.id, user.search_filter)
+
+        return result
 
     def get_sex_filter(self, vk_id, _=None):
         GIRL = GenderType.WOMAN.name
@@ -308,18 +321,24 @@ class VKDatingBot:
 
         for edit_event in self.longpoll.listen():
             if VKDatingBot.is_message_to_me(edit_event):
+                is_updated = False
                 result = user.search_filter or SearchFilter()
 
                 if edit_event.text == SEX:
                     result.sex = self.get_sex_filter(vk_id)
+                    is_updated = user.search_filter and result.sex != user.search_filter.sex
                 elif edit_event.text == CITY:
                     result.city = self.get_city_filter(vk_id)
+                    is_updated = user.search_filter and result.city != user.search_filter.city
                 elif edit_event.text == RELATION:
                     result.relation = self.get_relation_filter(vk_id)
+                    is_updated = user.search_filter and result.relation != user.search_filter.relation
                 elif edit_event.text == AGE_MIN:
                     result.age_min = self.get_age_min_filter(vk_id)
+                    is_updated = user.search_filter and result.age_min != user.search_filter.age_min
                 elif edit_event.text == AGE_MAX:
                     result.age_max = self.get_age_max_filter(vk_id, result)
+                    is_updated = user.search_filter and result.age_max != user.search_filter.age_max
                 elif edit_event.text == CANCEL:
                     return self.search(vk_id)
                 else:
@@ -327,6 +346,8 @@ class VKDatingBot:
                     continue
 
                 if result:
+                    if is_updated:
+                        result.offset = 0
                     self.save_filter(user.id, result)
                     return self.start(vk_id, result, init_message='Параметры поиска изменены, '
                                                                   'можем приступить к поиску')
