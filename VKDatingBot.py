@@ -56,6 +56,8 @@ class VKDatingBot:
             user_filter = user.search_filter
 
         if user_filter.empty_fields:
+            self.write_msg(vk_id, 'Давайте уточним некоторые параметры для поиска')
+
             for field in user_filter.empty_fields:
                 get_method = getattr(self, f'get_{field}_filter')
                 new_value = get_method(vk_id, user_filter)
@@ -74,12 +76,17 @@ class VKDatingBot:
         start_keyboard.add_button(EDIT, color=VkKeyboardColor.SECONDARY)
         start_keyboard = start_keyboard.get_keyboard()
 
+        display_city = self.app_client.method('database.getCitiesById', {'city_ids': filter.city})[0].get('title') \
+            if filter.city \
+            else 'Любой'
+
         self.write_msg(vk_id, 'Пареметры поиска\n'
                               # TODO: красивое отображение
                               f'Пол: {filter.sex}\n'
                               f'Возраст: от {filter.age_min} до {filter.age_max}\n'
                               f'Семейное положение: {filter.relation}\n'
-                              f'Город: {filter.city}\n')
+                              # TODO: красивое отображение
+                              f'Город: {display_city}')
         self.write_msg(vk_id, init_message, keyboard=start_keyboard)
 
         for start_event in self.longpoll.listen():
@@ -89,7 +96,10 @@ class VKDatingBot:
                 elif start_event.text == EDIT:
                     return self.edit_filter(vk_id)
                 else:
-                    self.write_msg(vk_id, '', keyboard=start_keyboard)
+                    self.write_msg(vk_id,
+                                   'Я вас не понял. \n'
+                                   'Выберите действие из списка',
+                                   keyboard=start_keyboard)
 
     def search(self, vk_id):
         user = self.get_user_by_vkid(vk_id)
@@ -170,8 +180,43 @@ class VKDatingBot:
                                           f'{current_filter.age_min if current_filter.age_min else 14} до 90')
 
     def get_city_filter(self, vk_id, _=None):
-        # TODO: запрос фильтра по городу
-        pass
+        self.write_msg(vk_id, 'Напишите название российского города, в котором будем искать:')
+
+        for city_event in self.longpoll.listen():
+            if VKDatingBot.is_message_to_me(city_event):
+                city_param = {
+                    'q': city_event.text,
+                    'country_id': 1,
+                    'count': 1,
+                    'v': 5.131
+                }
+
+                result_cities = self.app_client.method('database.getCities', city_param).get('items')
+
+                if not result_cities:
+                    self.write_msg(vk_id, f'В России не удалось найти город "{city_event.text}".\n'
+                                          'Попробуйте ввести другое название города:')
+                elif city_event.text.lower() != result_cities[0].get('title', '').lower():
+                    YES = 'Да'
+                    NO = 'Нет'
+
+                    keyboard = VkKeyboard(one_time=True)
+                    keyboard.add_button(YES, color=VkKeyboardColor.POSITIVE)
+                    keyboard.add_button(NO, color=VkKeyboardColor.NEGATIVE)
+                    keyboard = keyboard.get_keyboard()
+
+                    self.write_msg(vk_id, f'Вы имели ввиду город {result_cities[0].get("title")}', keyboard=keyboard)
+
+                    for confirm_event in self.longpoll.listen():
+                        if VKDatingBot.is_message_to_me(confirm_event):
+                            if confirm_event.text == YES:
+                                return result_cities[0].get('id')
+                            else:
+                                self.write_msg(vk_id, f'В России не удалось найти город "{city_event.text}".\n'
+                                                      'Попробуйте ввести другое название города:')
+                                break
+                else:
+                    return result_cities[0].get('id')
 
     def get_relation_filter(self, vk_id, _=None):
         NOT_MARRIED = 'Не женат / не замужем'

@@ -7,7 +7,7 @@ from .Base import Base
 
 class SearchFilter(Base):
     __tablename__ = 'filter'
-    __service_fields = ['created_at', 'updated_at', 'id', 'user_id']
+    __service_fields = ['created_at', 'updated_at', 'id', 'user_id', 'offset']
 
     sex = sq.Column(sq.Integer)
     age_min = sq.Column(sq.Integer)
