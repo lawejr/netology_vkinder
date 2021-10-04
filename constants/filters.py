@@ -24,7 +24,7 @@ class Filter(Enum):
     AGE_MIN = 'age_min'
     AGE_MAX = 'age_max'
     STATUS = 'status'
-    HOME_TOWN = 'home_town'
+    CITY = 'city'
 
 
 FilterName = {
@@ -32,6 +32,6 @@ FilterName = {
     Filter.AGE_MIN.value: 'Минимальный возвраст',
     Filter.AGE_MAX.value: 'Максимальный возвраст',
     Filter.STATUS.value: 'Семейное положение',
-    Filter.HOME_TOWN.value: 'Город'
+    Filter.CITY.value: 'Город'
 }
 

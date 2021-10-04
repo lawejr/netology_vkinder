@@ -13,7 +13,8 @@ class SearchFilter(Base):
     age_min = sq.Column(sq.Integer)
     age_max = sq.Column(sq.Integer)
     relation = sq.Column(sq.String, default=RelationType.IN_SEARCH.value)
-    home_town = sq.Column(sq.String)
+    city = sq.Column(sq.Integer)
+    offset = sq.Column(sq.Integer, default=0)
     user_id = sq.Column(sq.Integer, sq.ForeignKey('user.id'))
 
     @property

@@ -15,7 +15,7 @@ class User(Base):
     sex = sq.Column(sq.Integer, default=0)
     birth_date = sq.Column(sq.Date)
     status = sq.Column(sq.String)
-    home_town = sq.Column(sq.String)
+    city = sq.Column(sq.Integer)
     search_filter = relationship('SearchFilter', uselist=False, cascade='delete')
 
     @property
@@ -47,7 +47,7 @@ class User(Base):
         user.sex = row_user.get('sex')
         user.birth_date = row_user.get('bdate')
         user.status = row_user.get('status')
-        user.home_town = row_user.get('home_town')
+        user.city = row_user.get('city', {}).get('id')
 
         return user
 
@@ -58,4 +58,4 @@ class User(Base):
         self.sex = row_user.get('sex')
         self.birth_date = row_user.get('bdate')
         self.status = row_user.get('status')
-        self.home_town = row_user.get('home_town')
+        self.city = row_user.get('city', {}).get('id')

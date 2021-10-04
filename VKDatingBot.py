@@ -12,10 +12,11 @@ class VKDatingBot:
     def is_message_to_me(event):
         return event.type == VkEventType.MESSAGE_NEW and event.to_me
 
-    def __init__(self, client):
+    def __init__(self, group_client, app_client):
         self.db_session = Session()
-        self.client = client
-        self.longpoll = VkLongPoll(self.client)
+        self.group_client = group_client
+        self.app_client = app_client
+        self.longpoll = VkLongPoll(self.group_client)
 
         print('=== Бот готов принять сообщение в чате ===')
         for event in self.longpoll.listen():
@@ -45,7 +46,7 @@ class VKDatingBot:
         if not user.search_filter:
             user_filter.age_min = user.age
             user_filter.age_max = user.age
-            user_filter.home_town = user.home_town
+            user_filter.city = user.city
             if user.sex == GenderType.MAN.value:
                 user_filter.sex = GenderType.WOMAN.value
             elif user.sex == GenderType.MAN.value:
@@ -78,7 +79,7 @@ class VKDatingBot:
                               f'Пол: {filter.sex}\n'
                               f'Возраст: от {filter.age_min} до {filter.age_max}\n'
                               f'Семейное положение: {filter.relation}\n'
-                              f'Город: {filter.home_town}\n')
+                              f'Город: {filter.city}\n')
         self.write_msg(vk_id, init_message, keyboard=start_keyboard)
 
         for start_event in self.longpoll.listen():
@@ -91,8 +92,24 @@ class VKDatingBot:
                     self.write_msg(vk_id, '', keyboard=start_keyboard)
 
     def search(self, vk_id):
-        # TODO: поиск
-        pass
+        user = self.get_user_by_vkid(vk_id)
+        user_filter = user.search_filter
+
+        candidate_param = {
+            'is_closed': 'False',
+            'has_photo': '1',
+            'sex': user_filter.sex,
+            'status': user_filter.relation,
+            'city': user_filter.city,
+            'age_from': user_filter.age_min,
+            'age_to': user_filter.age_max,
+            'offset': user_filter.offset,
+            'count': '3',
+            'fields': 'city',
+            'v': 5.131
+        }
+
+        return self.app_client.method('users.search', candidate_param).get('items')
 
     def get_sex_filter(self, vk_id, _=None):
         GIRL = 'Девушка 👩'
@@ -152,7 +169,7 @@ class VKDatingBot:
                                           f'Введите число от '
                                           f'{current_filter.age_min if current_filter.age_min else 14} до 90')
 
-    def get_home_town_filter(self, vk_id, _=None):
+    def get_city_filter(self, vk_id, _=None):
         # TODO: запрос фильтра по городу
         pass
 
@@ -212,14 +229,14 @@ class VKDatingBot:
                 return user
             else:
                 row_user = \
-                    self.client.method('users.get', {'user_ids': [vk_id], 'fields': 'sex,bdate,home_town,status'})[0]
+                    self.app_client.method('users.get', {'user_ids': [vk_id], 'fields': 'sex,bdate,city,status'})[0]
                 user.update_from_vk(row_user)
                 session.add(user)
                 session.commit()
                 session.refresh(user)
                 return user
         else:
-            row_user = self.client.method('users.get', {'user_ids': [vk_id], 'fields': 'sex,bdate,home_town,status'})[0]
+            row_user = self.app_client.method('users.get', {'user_ids': [vk_id], 'fields': 'sex,bdate,city,status'})[0]
             user = User.create_from_vk(row_user)
             session.add(user)
             session.commit()
@@ -240,7 +257,7 @@ class VKDatingBot:
         user = self.get_user_by_vkid(vk_id)
 
         SEX = 'Пол'
-        HOME_TOWN = 'Город'
+        CITY = 'Город'
         RELATION = 'Семейное положение'
         AGE_MIN = 'Минимальный возраст'
         AGE_MAX = 'Максимальный возраст'
@@ -248,7 +265,7 @@ class VKDatingBot:
 
         keyboard = VkKeyboard(one_time=True)
         keyboard.add_button(SEX, color=VkKeyboardColor.SECONDARY)
-        keyboard.add_button(HOME_TOWN, color=VkKeyboardColor.SECONDARY)
+        keyboard.add_button(CITY, color=VkKeyboardColor.SECONDARY)
         keyboard.add_button(RELATION, color=VkKeyboardColor.SECONDARY)
         keyboard.add_line()
         keyboard.add_button(AGE_MIN, color=VkKeyboardColor.SECONDARY)
@@ -265,8 +282,8 @@ class VKDatingBot:
 
                 if edit_event.text == SEX:
                     result.sex = self.get_sex_filter(vk_id)
-                elif edit_event.text == HOME_TOWN:
-                    result.home_town = self.get_home_town_filter(vk_id)
+                elif edit_event.text == CITY:
+                    result.city = self.get_city_filter(vk_id)
                 elif edit_event.text == RELATION:
                     result.relation = self.get_relation_filter(vk_id)
                 elif edit_event.text == AGE_MIN:
@@ -285,7 +302,7 @@ class VKDatingBot:
                                                                   'можем приступить к поиску')
 
     def write_msg(self, vk_id, message, keyboard=None):
-        self.client.method('messages.send', {
+        self.group_client.method('messages.send', {
             'user_id': vk_id,
             'message': message,
             'random_id': randrange(10 ** 7),
