@@ -20,7 +20,7 @@ class User(Base):
 
     @property
     def profile_link(self):
-        return f'https://vk.com/id{self.id}'
+        return f'https://vk.com/id{self.vk_id}'
 
     @property
     def age(self):

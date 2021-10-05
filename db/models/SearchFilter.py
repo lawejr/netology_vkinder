@@ -29,7 +29,6 @@ class SearchFilter(Base):
     @property
     def vk_params(self):
         return {
-            'is_closed': 'False',
             'has_photo': 1,
             'sex': self.sex,
             'status': self.relation,

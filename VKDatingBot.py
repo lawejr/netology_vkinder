@@ -39,9 +39,9 @@ class VKDatingBot:
                 return
 
     def init(self, vk_id):
-        # TODO: приветственное сообщение
-        self.write_msg(vk_id, f'Хай, {vk_id}')
         user = self.get_user_by_vkid(vk_id)
+        self.write_msg(vk_id, f'Привет, {user.first_name}! Я могу помочь вам с кем-нибудь познакомиться.')
+
         user_filter = SearchFilter()
 
         if not user.search_filter:
@@ -70,9 +70,9 @@ class VKDatingBot:
         else:
             self.start(vk_id, user_filter)
 
-    def start(self, vk_id, filter, init_message='Выберите действие из списка'):
-        START = 'Начать'
-        EDIT = 'Изменить'
+    def start(self, vk_id, filter, init_message='Выберите действие из списка:'):
+        START = 'Искать'
+        EDIT = 'Изменить параметры'
         start_keyboard = VkKeyboard(one_time=True)
         start_keyboard.add_button(START, color=VkKeyboardColor.PRIMARY)
         start_keyboard.add_button(EDIT, color=VkKeyboardColor.SECONDARY)
@@ -92,14 +92,24 @@ class VKDatingBot:
         for start_event in self.longpoll.listen():
             if self.is_message_to_me(start_event):
                 if start_event.text == START:
-                    result = self.search(vk_id)
+                    result = self.start_search(vk_id)
 
                     if not result:
-                        self.write_msg(vk_id, 'Не удалось найти пользователей заданными параметрам.\n'
+                        self.write_msg(vk_id, 'Не удалось найти пользователей по заданным параметрам.\n'
                                               'Попробуйте изменить настройки поиска')
                         return self.edit_filter(vk_id)
                     else:
-                        print(result)
+                        self.write_msg(vk_id, 'Вот кого я нашёл:')
+
+                        for people in result:
+                            candidate = User.create_from_vk(people)
+                            photos = ','.join(self.select_photos(candidate.vk_id))
+                            self.write_msg(vk_id, f'{candidate.first_name} {candidate.last_name}\n'
+                                                  f'{candidate.profile_link}', attachment=photos)
+
+                        self.write_msg(vk_id,
+                                       'Можем поискать ещё или изменить параметры поиска',
+                                       keyboard=start_keyboard)
                 elif start_event.text == EDIT:
                     return self.edit_filter(vk_id)
                 else:
@@ -107,6 +117,17 @@ class VKDatingBot:
                                    'Я вас не понял. \n'
                                    'Выберите действие из списка',
                                    keyboard=start_keyboard)
+
+    def start_search(self, vk_id):
+        result = self.search(vk_id)
+        filtered_result = list(filter(lambda item: not item['is_closed'], result))
+
+        if not result:
+            return None
+        elif filtered_result:
+            return filtered_result
+        else:
+            return self.start_search(vk_id)
 
     def search(self, vk_id):
         user = self.get_user_by_vkid(vk_id)
@@ -266,20 +287,21 @@ class VKDatingBot:
     def get_user_by_vkid(self, vk_id):
         session = self.db_session
         user = session.query(User).filter(User.vk_id == vk_id).first()
+        users_params = {'user_ids': [vk_id], 'fields': 'sex,bdate,city,status'}
 
         if user:
             if user.updated_at.date() == datetime.today().date():
                 return user
             else:
                 row_user = \
-                    self.app_client.method('users.get', {'user_ids': [vk_id], 'fields': 'sex,bdate,city,status'})[0]
+                    self.app_client.method('users.get', users_params)[0]
                 user.update_from_vk(row_user)
                 session.add(user)
                 session.commit()
                 session.refresh(user)
                 return user
         else:
-            row_user = self.app_client.method('users.get', {'user_ids': [vk_id], 'fields': 'sex,bdate,city,status'})[0]
+            row_user = self.app_client.method('users.get', users_params)[0]
             user = User.create_from_vk(row_user)
             session.add(user)
             session.commit()
@@ -352,10 +374,28 @@ class VKDatingBot:
                     return self.start(vk_id, result, init_message='Параметры поиска изменены, '
                                                                   'можем приступить к поиску')
 
-    def write_msg(self, vk_id, message, keyboard=None):
+    def select_photos(self, owner_id):
+        photo_param = {'owner_id': owner_id, 'album_id': 'profile',
+                       'extended': '1', 'count': '20', 'photo_sizes': '0', 'v': 5.131}
+        photos = self.app_client.method('photos.get', photo_param)
+        photos_count = 3 if photos.get('count') >= 3 else photos.get('count')
+        photo_list = photos.get('items')
+        photo_dict = {}
+        if photos_count:
+            for photo in photo_list:
+                photo_id = photo.get('id')
+                likes = photo.get('likes', {}).get('count')
+                photo_dict[likes] = f'photo{owner_id}_{photo_id}'
+
+        photo_dict = {likes_count: photo_dict[likes_count] for likes_count in sorted(photo_dict, reverse=True)}
+        result = list(photo_dict.values())[0:photos_count]
+        return result
+
+    def write_msg(self, vk_id, message, attachment=None, keyboard=None):
         self.group_client.method('messages.send', {
             'user_id': vk_id,
             'message': message,
+            'attachment': attachment,
             'random_id': randrange(10 ** 7),
             'keyboard': keyboard
         })
