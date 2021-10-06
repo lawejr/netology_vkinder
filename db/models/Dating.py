@@ -3,6 +3,7 @@ import sqlalchemy as sq
 from .Base import Base
 
 
+# Модель для дальнейшего расширения приложения. Пока не используется
 class Dating(Base):
     __tablename__ = 'dating'
 

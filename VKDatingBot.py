@@ -82,7 +82,8 @@ class VKDatingBot:
             if filter.city \
             else 'Любой'
 
-        self.write_msg(vk_id, 'Параметры поиска\n'
+        self.write_msg(vk_id, 'Параметры поиска:\n'
+                              '\n'
                               f'Пол: {GenderType(filter.sex).name}\n'
                               f'Возраст: от {filter.age_min} до {filter.age_max}\n'
                               f'Семейное положение: {filter.relation}\n'
@@ -224,7 +225,7 @@ class VKDatingBot:
                     keyboard.add_button(NO, color=VkKeyboardColor.NEGATIVE)
                     keyboard = keyboard.get_keyboard()
 
-                    self.write_msg(vk_id, f'Вы имели ввиду город {result_cities[0].get("title")}', keyboard=keyboard)
+                    self.write_msg(vk_id, f'Вы имели ввиду город {result_cities[0].get("title")}?', keyboard=keyboard)
 
                     for confirm_event in self.longpoll.listen():
                         if VKDatingBot.is_message_to_me(confirm_event):
@@ -326,7 +327,7 @@ class VKDatingBot:
         RELATION = FilterType.RELATION.name
         AGE_MIN = FilterType.AGE_MIN.name
         AGE_MAX = FilterType.AGE_MAX.name
-        CANCEL = 'Отменить и начать поиск'
+        CANCEL = 'Отменить'
 
         keyboard = VkKeyboard(one_time=True)
         keyboard.add_button(SEX, color=VkKeyboardColor.SECONDARY)
@@ -343,36 +344,41 @@ class VKDatingBot:
 
         for edit_event in self.longpoll.listen():
             if VKDatingBot.is_message_to_me(edit_event):
+                prev_value = None
                 is_updated = False
                 result = user.search_filter or SearchFilter()
 
                 if edit_event.text == SEX:
+                    prev_value = result.sex
                     result.sex = self.get_sex_filter(vk_id)
-                    is_updated = user.search_filter and result.sex != user.search_filter.sex
+                    is_updated = prev_value and result.sex != prev_value
                 elif edit_event.text == CITY:
+                    prev_value = result.city
                     result.city = self.get_city_filter(vk_id)
-                    is_updated = user.search_filter and result.city != user.search_filter.city
+                    is_updated = prev_value and result.city != prev_value
                 elif edit_event.text == RELATION:
+                    prev_value = result.relation
                     result.relation = self.get_relation_filter(vk_id)
-                    is_updated = user.search_filter and result.relation != user.search_filter.relation
+                    is_updated = prev_value and result.relation != prev_value
                 elif edit_event.text == AGE_MIN:
+                    prev_value = result.age_min
                     result.age_min = self.get_age_min_filter(vk_id)
-                    is_updated = user.search_filter and result.age_min != user.search_filter.age_min
+                    is_updated = prev_value and result.age_min != prev_value
                 elif edit_event.text == AGE_MAX:
+                    prev_value = result.age_max
                     result.age_max = self.get_age_max_filter(vk_id, result)
-                    is_updated = user.search_filter and result.age_max != user.search_filter.age_max
+                    is_updated = prev_value and result.age_max != prev_value
                 elif edit_event.text == CANCEL:
-                    return self.search(vk_id)
+                    return self.start(vk_id, result)
                 else:
                     self.write_msg(vk_id, 'Выберите действие из списка', keyboard=keyboard)
                     continue
 
-                if result:
-                    if is_updated:
-                        result.offset = 0
-                    self.save_filter(user.id, result)
-                    return self.start(vk_id, result, init_message='Параметры поиска изменены, '
-                                                                  'можем приступить к поиску')
+                if is_updated:
+                    result.offset = 0
+                self.save_filter(user.id, result)
+                return self.start(vk_id, result, init_message='Параметры поиска изменены, '
+                                                              'можем приступить к поиску')
 
     def select_photos(self, owner_id):
         photo_param = {'owner_id': owner_id, 'album_id': 'profile',
