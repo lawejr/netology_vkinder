@@ -1,7 +1,7 @@
 import os
-from dotenv import load_dotenv
 import vk_api
 from vk_api.longpoll import VkLongPoll
+from dotenv import load_dotenv
 
 from VKDatingBot import VKDatingBot
 

@@ -30,12 +30,16 @@ class VKDatingBot:
             if request == 'привет' or request == 'start':
                 self.init(vk_id)
                 return
-            elif request == 'пока':
+            elif request == 'пока' or request == 'stop':
                 self.write_msg(vk_id, 'До свидания! Если с кем-нибудь познакомиться напишите  "Привет" или "Start".')
                 return
             else:
+                START = 'Start'
+                init_keyboard = VkKeyboard(one_time=True)
+                init_keyboard.add_button(START, color=VkKeyboardColor.PRIMARY)
+                init_keyboard = init_keyboard.get_keyboard()
                 self.write_msg(vk_id, 'Я вас не понял. \n'
-                                      'Чтобы с кем-нибудь познакомиться напишите "Привет" или "Start".')
+                                      'Чтобы с кем-нибудь познакомиться напишите "Привет" или "Start".', keyboard=init_keyboard)
                 return
 
     def init(self, vk_id):
