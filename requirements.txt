@@ -1,3 +1,4 @@
 vk_api
 SQLAlchemy~=1.4.23
 psycopg2
+python-dotenv~=0.19.1
